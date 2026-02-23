@@ -98,7 +98,7 @@ def render_premium_card(chave, info, res_finais, interpreter):
     st.write(info['texto'])
     st.markdown("---")
 
-# --- FUNÇÕES DO CARROSSEL ---
+# --- FUNÇÕES DO CARROSSEL (AGORA BANNER ESTÁTICO) ---
 def get_base64_of_image(file_path):
     """Lê a imagem física e transforma em código de texto (Base64)"""
     try:
@@ -109,70 +109,42 @@ def get_base64_of_image(file_path):
         return "" 
 
 def render_banner_carrossel():
-    """Injeta o HTML/CSS do carrossel no topo da página"""
-    # Lendo as imagens da pasta assets com formato .png
-    img1 = get_base64_of_image('assets/pg_salto.png')
-    img2 = get_base64_of_image('assets/pg_corre.png')
-    img3 = get_base64_of_image('assets/pg_academia.png')
+    """Injeta o HTML/CSS de um banner estático e seguro no topo da página"""
+    # Lê apenas a primeira imagem da pasta
+    img_base64 = get_base64_of_image('assets/pg_salto.png')
 
-    # Se faltar alguma imagem, cancela silenciosamente sem quebrar o software
-    if not img1 or not img2 or not img3:
+    # Se faltar a imagem, cancela silenciosamente sem quebrar o software
+    if not img_base64:
         return
 
-    # O "Palco" HTML e o "Diretor" CSS
+    # O CSS agora é super simples, sem 'position: absolute', o que impede de sobrepor os botões!
     html_code = f"""
     <style>
-    /* 1. Padrão: Altura ideal e imponente para Computador (Desktop) */
-    .carousel-container {{
+    /* 1. Padrão: Computador (Desktop) */
+    .banner-estatico {{
         width: 100%;
         height: 500px; 
-        position: relative;
-        overflow: hidden;
+        object-fit: cover;
         border-radius: 12px;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         margin-bottom: 25px;
+        display: block; /* Garante que empurre os elementos de baixo */
     }}
 
-    /* 2. Regra de Responsividade: Só é ativada em Celulares e Tablets */
+    /* 2. Regra de Responsividade: Celulares e Tablets */
     @media (max-width: 768px) {{
-        .carousel-container {{
-            height: 250px; /* Fica fininho e elegante no mobile */
+        .banner-estatico {{
+            height: 250px; 
             margin-bottom: 15px;
         }}
     }}
-
-    .carousel-container img {{
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        position: relative;
-        top: 0;
-        left: 0;
-        opacity: 0;
-        animation: carousel-fade 30s infinite;
-    }}
-    /* Ordem de entrada (10s para cada) */
-    .carousel-container img:nth-child(1) {{ animation-delay: 0s; }}
-    .carousel-container img:nth-child(2) {{ animation-delay: 10s; }}
-    .carousel-container img:nth-child(3) {{ animation-delay: 20s; }}
-
-    /* A mágica da transição suave */
-    @keyframes carousel-fade {{
-        0% {{ opacity: 0; }}
-        5% {{ opacity: 1; }}
-        33% {{ opacity: 1; }}
-        38% {{ opacity: 0; }}
-        100% {{ opacity: 0; }}
-    }}
     </style>
-    <div class="carousel-container">
-        <img src="data:image/png;base64,{img1}" alt="Salto">
-        <img src="data:image/png;base64,{img2}" alt="Corre">
-        <img src="data:image/png;base64,{img3}" alt="Academia">
-    </div>
+    
+    <img class="banner-estatico" src="data:image/png;base64,{img_base64}" alt="Banner Principal">
     """
     st.markdown(html_code, unsafe_allow_html=True)
 
+    
 # --- FUNÇÃO DE GRUPO ATUALIZADA (LÓGICA DE REFERÊNCIA) ---
 # 1. Certifique-se de que o import no topo do arquivo app.py inclua:
 # from src.pdf_generator import criar_pdf, criar_relatorio_grupo
