@@ -68,6 +68,7 @@ class PDFReport(FPDF):
                 self.image(logo_sys, x=85, y=8, w=40)
                 self.ln(35)
             else:
+                self.set_font('Arial', 'B', 12) # <-- A ÚNICA LINHA ADICIONADA: Declara a fonte antes de escrever
                 self.cell(0, 10, 'BioMS Technology', 0, 1, 'C')
                 self.ln(5)
 
