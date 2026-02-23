@@ -144,7 +144,7 @@ def render_banner_carrossel():
     """
     st.markdown(html_code, unsafe_allow_html=True)
 
-    
+
 # --- FUNÇÃO DE GRUPO ATUALIZADA (LÓGICA DE REFERÊNCIA) ---
 # 1. Certifique-se de que o import no topo do arquivo app.py inclua:
 # from src.pdf_generator import criar_pdf, criar_relatorio_grupo
@@ -677,9 +677,15 @@ def main():
             st.title("🧬 BioMS Pro")
             
         # SELETOR DE MODO
+        # SELETOR DE MODO
         modo_analise = st.radio(
             "Modo de Análise", 
-            ["📈 Individual", "📈 Grupo / Time", "📈 Z-Score Universal", "📈 Avaliação Normativa"],
+            [
+                "📈 Índices BioMS", 
+                "📈 Índices BioMS para Grupos/Equipes", 
+                "📈 Testes Z-Score Universais", 
+                "📈 Avaliação de Treinamento de Força"
+            ],
             help="Escolha o tipo de análise que deseja realizar."
         )
         st.markdown("---")
@@ -704,7 +710,7 @@ def main():
     # =========================================================
     # FLUXO 1: MODO INDIVIDUAL
     # =========================================================
-    if modo_analise == "📈 Individual":
+    if modo_analise == "📈 Índices BioMS":
         
         # 1. Formulário na Sidebar (Limpo e Direto)
         with st.sidebar:
@@ -835,21 +841,20 @@ def main():
     # =========================================================
     # FLUXO 2: MODO GRUPO / TIME (NOVO)
     # =========================================================
-    elif modo_analise == "📈 Grupo / Time":
+    elif modo_analise == "📈 Índices BioMS para Grupos/Equipes":
         render_interface_grupo(df_ref)
 
     # =========================================================
     # FLUXO 3: Z-SCORE UNIVERSAL
     # =========================================================
-    elif modo_analise == "📈 Z-Score Universal":
+    elif modo_analise == "📈 Testes Z-Score Universais":
         render_interface_zscore_universal()
 
 # =========================================================
     # FLUXO 4: AVALIAÇÃO NORMATIVA (PERCENTIS)
     # =========================================================
-    elif modo_analise == "📈 Avaliação Normativa":
+    elif modo_analise == "📈 Avaliação de Treinamento de Força":
         render_interface_normativa()
-
 
 if __name__ == "__main__":
     main()
