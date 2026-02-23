@@ -126,7 +126,7 @@ def render_banner_carrossel():
     .carousel-container {{
         width: 100%;
         height: 500px; 
-        position: relative;
+        position: absolute;
         overflow: hidden;
         border-radius: 12px;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
@@ -712,6 +712,17 @@ def main():
         )
         st.markdown("---")
 
+        #  INSERIR ESTE BLOCO AQUI 
+        with st.expander("📜 Termos de Uso e Privacidade"):
+            st.markdown("""
+            **1. Isenção:** O BioMS é uma ferramenta de apoio à decisão esportiva. Não substitui avaliações clínicas.
+            
+            **2. LGPD:** O Treinador atua como **Controlador** e garante ter o consentimento do aluno. O BioMS é apenas o **Operador** técnico.
+            
+            **3. Privacidade:** O BioMS não armazena, retém ou comercializa os dados sensíveis inseridos. Eles existem apenas na memória temporária para gerar o relatório.
+            """)
+        #  FIM DO BLOCO INSERIDO 
+
     # =========================================================
     # CHAMA O CARROSSEL (ELE APARECERÁ NO TOPO DA TELA)
     # =========================================================
@@ -746,37 +757,48 @@ def main():
                 st.markdown("###")
                 btn_analisar = st.form_submit_button("ANALISAR PERFORMANCE 🚀", type="primary")
 
+                aceite_termos = st.checkbox("☑️ Declaro ter consentimento do aluno para calcular as métricas e concordo com os Termos (o BioMS não armazena estes dados).")
+
+            
+
         # 2. Lógica de Processamento Individual (Conectada à API)
         if btn_analisar:
-            # Montamos o pacote de dados para a API
-            atleta_atual = {
-                'ID': atleta_nome, 
-                'SEXO': sexo_map[sexo], 
-                'AGE': idade,
-                'HEIGHT': h, 
-                'WEIGHT': w, 
-                'R': r_input, 
-                'Xc': xc_input
-            }
-
-            # Chamadas de suporte (Estatística e Interpretação)
-            stats = BioMSStatistics(df_ref)
-            interpreter = BioMSInterpreter()
-
-            # O grande momento: Chamada da API
-            with st.spinner("Calculando via API..."):
-                res_atleta = chamar_api_bioms(atleta_atual)
             
-            # Comparação estatística e geração de relatório
-            res_finais = stats.compare_athlete(res_atleta)
-            relatorio_dict = interpreter.gerar_relatorio_inteligente(res_finais)
+            # 👇 INSERIR A TRAVA AQUI 👇
+            if not aceite_termos:
+                st.sidebar.error("⚠️ Obrigatório: Marque a caixa de consentimento acima do botão para continuar.")
+            else:
+                # 👇 SE ELE ACEITOU, EXECUTA O SEU CÓDIGO NORMAL (Não esqueça de indentar tudo isso para a direita!) 👇
+                
+                # Montamos o pacote de dados para a API
+                atleta_atual = {
+                    'ID': atleta_nome, 
+                    'SEXO': sexo_map[sexo], 
+                    'AGE': idade,
+                    'HEIGHT': h, 
+                    'WEIGHT': w, 
+                    'R': r_input, 
+                    'Xc': xc_input
+                }
 
-            # Salva no estado da sessão para exibição
-            st.session_state.analisado = True
-            st.session_state.atleta_dados = atleta_atual
-            st.session_state.res_finais = res_finais
-            st.session_state.relatorio_dict = relatorio_dict
-            st.session_state.interpreter = interpreter
+                # Chamadas de suporte (Estatística e Interpretação)
+                stats = BioMSStatistics(df_ref)
+                interpreter = BioMSInterpreter()
+
+                # O grande momento: Chamada da API
+                with st.spinner("Calculando via API..."):
+                    res_atleta = chamar_api_bioms(atleta_atual)
+                
+                # Comparação estatística e geração de relatório
+                res_finais = stats.compare_athlete(res_atleta)
+                relatorio_dict = interpreter.gerar_relatorio_inteligente(res_finais)
+
+                # Salva no estado da sessão para exibição
+                st.session_state.analisado = True
+                st.session_state.atleta_dados = atleta_atual
+                st.session_state.res_finais = res_finais
+                st.session_state.relatorio_dict = relatorio_dict
+                st.session_state.interpreter = interpreter
 
         # Exibição dos Resultados Individuais
         if st.session_state.analisado:
