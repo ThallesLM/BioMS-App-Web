@@ -8,7 +8,7 @@ def chamar_api_bioms(dados_atleta):
     """
     Pega os dados do Streamlit e envia para a API calcular, mostrando o crachá de segurança.
     """
-    senha_secreta = os.environ.get("API_KEY_SECRETA", "BioMS_Ultra_Token_2026")
+    senha_secreta = os.environ.get("API_KEY_SECRETA")
     cabecalho = {"X-API-KEY": senha_secreta}
 
     try:
@@ -21,7 +21,7 @@ def chamar_api_bioms(dados_atleta):
         return {"erro": "Não consegui falar com a API. Verifique se o terminal da API está ligado!"}
 
 def obter_lista_exercicios():
-    senha_secreta = os.environ.get("API_KEY_SECRETA", "BioMS_Ultra_Token_2026")
+    senha_secreta = os.environ.get("API_KEY_SECRETA")
     cabecalho = {"X-API-KEY": senha_secreta}
     url = "https://bioms-api-backend.onrender.com/lista-exercicios"
     
@@ -35,7 +35,7 @@ def obter_lista_exercicios():
         return []
 
 def consultar_media_normativa(exercicio, sexo, idade):
-    senha_secreta = os.environ.get("API_KEY_SECRETA", "BioMS_Ultra_Token_2026")
+    senha_secreta = os.environ.get("API_KEY_SECRETA")
     cabecalho = {"X-API-KEY": senha_secreta}
     url = "https://bioms-api-backend.onrender.com/consulta-normativa"
     
