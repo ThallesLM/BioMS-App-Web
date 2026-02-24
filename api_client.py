@@ -48,3 +48,21 @@ def consultar_media_normativa(exercicio, sexo, idade):
         return {"erro": "Falha na API"}
     except:
         return {"erro": "Sem conexão"}
+
+# --- NOVA FUNÇÃO: MÓDULO DE CORRIDA ---
+def calcular_corrida_api(dados_corrida):
+    """
+    Envia os dados de corrida (distância, tempo, sexo, idade, nível) para a nova rota da API.
+    """
+    senha_secreta = os.environ.get("API_KEY_SECRETA")
+    cabecalho = {"X-API-KEY": senha_secreta}
+    url = "https://bioms-api-backend.onrender.com/calcular-corrida"
+    
+    try:
+        res = requests.post(url, json=dados_corrida, headers=cabecalho, timeout=30)
+        if res.status_code == 200:
+            return res.json()
+        else:
+            return {"erro": f"Erro na API: {res.status_code}", "detalhe": res.text}
+    except Exception as e:
+        return {"erro": "Sem conexão com a API de corrida. Verifique a internet ou o servidor."}

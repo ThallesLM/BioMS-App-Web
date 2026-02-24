@@ -7,9 +7,12 @@ import altair as alt
 import base64
 from PIL import Image, UnidentifiedImageError
 
+from dotenv import load_dotenv
+load_dotenv()
+
 # --- Módulos Internos ---
 from src.data_loader import load_data
-from api_client import chamar_api_bioms, obter_lista_exercicios, consultar_media_normativa
+from api_client import chamar_api_bioms, obter_lista_exercicios, consultar_media_normativa, calcular_corrida_api
 from src.statistics import BioMSStatistics
 from src.interpretation import BioMSInterpreter
 
@@ -519,8 +522,8 @@ def render_interface_normativa():
         
         # Tabela dinâmica preparada para longo prazo
         df_template = pd.DataFrame([
-            {"Exercício": lista_exercicios[0], "Data": "01/01/2026", "Carga (kg)": 40.0, "Repetições": 10},
-            {"Exercício": lista_exercicios[0], "Data": "15/02/2026", "Carga (kg)": 45.0, "Repetições": 8},
+            {"Exercício": lista_exercicios[0], "Data": "01/01/2026", "Carga (kg)": 40.0, "Repetições": 10}
+            
         ])
         
         config_colunas = {
@@ -684,7 +687,8 @@ def main():
                 "📈 Índices BioMS", 
                 "📈 Índices BioMS para Grupos/Equipes", 
                 "📈 Testes Z-Score Universais", 
-                "📈 Avaliação de Treinamento de Força"
+                "📈 Avaliação de Treinamento de Força",
+                "📈 Avaliação de Corrida"
             ],
             help="Escolha o tipo de análise que deseja realizar."
         )
@@ -856,5 +860,327 @@ def main():
     elif modo_analise == "📈 Avaliação de Treinamento de Força":
         render_interface_normativa()
 
+# =========================================================
+    # FLUXO 5: MÓDULO DE CORRIDA (BIOMS RUNNERS)
+    # =========================================================
+    elif modo_analise == "📈 Avaliação de Corrida":
+        st.header("🏃‍♂️ BioMS Runners - Avaliação de Performance")
+        
+        # O Sub-menu Inteligente para SaaS (Atualizado)
+        modo_runner = st.radio(
+            "Selecione o tipo de análise:", 
+            [
+                "👤 Individual (Transversal e Evolução)", 
+                "👥 Equipe (Ranking Transversal)",
+                "👑 Evolução de Equipes (Premium)"
+            ],
+            horizontal=True
+        )
+        st.write("---")
+
+        # ---------------------------------------------------------
+        # CAMINHO A: INDIVIDUAL (Mantido intacto e perfeito)
+        # ---------------------------------------------------------
+        if "Individual" in modo_runner:
+            st.markdown("Insira um único teste (Transversal) ou múltiplas datas (Longitudinal). O sistema calcula o seu **Score (Percentil)**, onde `50` é a média e números maiores significam maior velocidade.")
+            
+            with st.expander("👤 Dados do Atleta & Personalização", expanded=True):
+                c1, c2, c3, c4 = st.columns([2, 1, 1, 1])
+                with c1: nome_runner = st.text_input("Nome do Atleta:", "Atleta Runner")
+                with c2: sexo_runner = st.selectbox("Sexo (Corrida):", ["Masculino", "Feminino"])
+                with c3: idade_runner = st.number_input("Idade (Corrida):", 18, 90, 30)
+                with c4: nivel = st.selectbox("Nível de Comparação:", ["Amador", "Elite"])
+                
+                st.write("---")
+                cor_col, logo_col = st.columns([1, 2])
+                with cor_col: cor_aluno = st.color_picker("Cor das Barras do Aluno:", "#3498db")
+                with logo_col: 
+                    logo_raw_r = st.file_uploader("Logo do Treinador/Equipe (Opcional)", type=["png", "jpg"], key="logo_runner")
+                    logo_upload_runner = validar_imagem(logo_raw_r) if logo_raw_r else None
+                    
+                st.write("---")
+                st.markdown("<small><b>Insira as coletas abaixo (Preencha Minutos e Segundos):</b></small>", unsafe_allow_html=True)
+                
+                # Tabela dinâmica
+                df_template_runner = pd.DataFrame([
+                    {"Distância": "5km", "Data": "01/01/2026", "Minutos": 28, "Segundos": 30}
+                ])
+                
+                distancias_opcoes = ["100m", "400m", "1500m", "5km", "10km"]
+                
+                config_colunas_runner = {
+                    "Distância": st.column_config.SelectboxColumn("Distância", options=distancias_opcoes, required=True, width="medium"),
+                    "Data": st.column_config.TextColumn("Data (ex: Jan/26)", required=True, width="small"),
+                    "Minutos": st.column_config.NumberColumn("Minutos", min_value=0, step=1, width="small"),
+                    "Segundos": st.column_config.NumberColumn("Segundos", min_value=0, max_value=59, step=1, width="small")
+                }
+                
+                df_input_runner = st.data_editor(df_template_runner, num_rows="dynamic", column_config=config_colunas_runner, use_container_width=True, hide_index=True, key="grid_runner")
+
+            if st.button("🚀 GERAR RELATÓRIO DE CORRIDA", type="primary"):
+                df_calc_runner = df_input_runner.dropna(subset=["Distância", "Data"]).copy()
+                
+                if df_calc_runner.empty:
+                    st.error("⚠️ Preencha pelo menos uma coleta.")
+                else:
+                    with st.spinner("Calculando performance na API BioMS..."):
+                        
+                        valores_percentil = []
+                        z_scores_visuais = []
+                        tempos_formatados = []
+                        erro_api = False 
+
+                        for idx, row in df_calc_runner.iterrows():
+                            dist = row["Distância"]
+                            mins = int(row.get("Minutos", 0))
+                            segs = int(row.get("Segundos", 0))
+                            
+                            tempo_total = (mins * 60) + segs
+                            
+                            if tempo_total <= 0:
+                                valores_percentil.append(0)
+                                z_scores_visuais.append(0)
+                                tempos_formatados.append("00m 00s")
+                                continue
+                                
+                            dados_req = {
+                                "ID": nome_runner,
+                                "distancia": dist,
+                                "sexo": "M" if sexo_runner == "Masculino" else "F",
+                                "idade": int(idade_runner),
+                                "nivel": nivel,
+                                "tempo_segundos": float(tempo_total)
+                            }
+                            
+                            res_api = calcular_corrida_api(dados_req)
+                            
+                            if "erro" in res_api:
+                                st.warning(f"Erro ao calcular {dist} em {row['Data']}: {res_api['erro']}")
+                                valores_percentil.append(0)
+                                z_scores_visuais.append(0)
+                                tempos_formatados.append(f"{mins}m {segs}s")
+                                erro_api = True
+                            else:
+                                z = res_api["z_score"]
+                                p = res_api["percentil"]
+                                valores_percentil.append(p)
+                                z_scores_visuais.append(z * -1) # Inversão visual
+                                tempos_formatados.append(f"{mins}m {segs}s")
+                                
+                        df_calc_runner["Valor_Final"] = valores_percentil 
+                        df_calc_runner["Z_Score_Visual"] = z_scores_visuais
+                        df_calc_runner["Tempo_Txt"] = tempos_formatados
+                        
+                        if not erro_api:
+                            st.success("Cálculos concluídos com sucesso!")
+                        
+                        logo_path = None
+                        if logo_upload_runner:
+                            import tempfile
+                            ext = os.path.splitext(logo_upload_runner.name)[1]
+                            with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
+                                tmp.write(logo_upload_runner.getvalue())
+                                logo_path = tmp.name
+
+                        st.write("---")
+                        st.subheader(f"Evolução de Performance: {nome_runner} ({idade_runner} anos)")
+                        
+                        interp_graf = BioMSInterpreter()
+                        distancias_unicas = df_calc_runner["Distância"].unique()
+                        st.session_state['dados_pdf_corrida'] = []
+                        
+                        for dist in distancias_unicas:
+                            df_dist = df_calc_runner[df_calc_runner["Distância"] == dist].copy()
+                            media_oficial = 50.0 
+                            
+                            fig = interp_graf.plot_longitudinal_evolution(df_dist, media_oficial, f"Performance ({dist})", cor_aluno)
+                            
+                            col_graf, col_tab = st.columns([7, 3])
+                            with col_graf:
+                                st.pyplot(fig, use_container_width=True)
+                            
+                            with col_tab:
+                                st.markdown(f"**Detalhes ({dist}):**")
+                                df_view = df_dist[["Data", "Tempo_Txt", "Valor_Final"]].copy()
+                                df_view.rename(columns={"Tempo_Txt": "Tempo", "Valor_Final": "Score (Percentil)"}, inplace=True)
+                                st.dataframe(df_view.style.format({"Score (Percentil)": "{:.1f}%"}), hide_index=True)
+                                
+                                progresso_txt = ""
+                                if len(df_dist) > 1:
+                                    primeiro = df_dist.iloc[0]["Valor_Final"]
+                                    ultimo = df_dist.iloc[-1]["Valor_Final"]
+                                    if primeiro > 0:
+                                        progresso = ((ultimo - primeiro) / primeiro) * 100
+                                        cor_prog = "green" if progresso >= 0 else "red"
+                                        sinal = "+" if progresso >= 0 else ""
+                                        progresso_txt = f"{sinal}{progresso:.1f}%"
+                                        st.markdown(f"📈 **Evolução do Score:** <span style='color:{cor_prog}'><b>{progresso_txt}</b></span>", unsafe_allow_html=True)
+
+                            st.write("---")
+                            
+                            st.session_state['dados_pdf_corrida'].append({
+                                "exercicio": dist,
+                                "df": df_dist,
+                                "media_grupo": media_oficial,
+                                "figura": fig,
+                                "evolucao": progresso_txt
+                            })
+
+                        if PDF_AVAILABLE and len(st.session_state['dados_pdf_corrida']) > 0:
+                            try:
+                                pdf_bytes = criar_relatorio_normativo_longitudinal(
+                                    nome_runner, idade_runner, st.session_state['dados_pdf_corrida'], logo_path,
+                                    titulo_relatorio="Relatório de Progresso e Performance de Corrida"
+                                )
+                                st.download_button(
+                                    label="📥 BAIXAR RELATÓRIO DE CORRIDA (PDF)", data=pdf_bytes,
+                                    file_name=f"Evolucao_Corrida_{nome_runner.replace(' ', '_')}.pdf", mime="application/pdf", use_container_width=True
+                                )
+                            except Exception as e:
+                                st.error(f"Erro ao gerar PDF: {e}")
+
+        # ---------------------------------------------------------
+        # CAMINHO B: EQUIPE TRANSVERSAL (A NOVA MÁGICA)
+        # ---------------------------------------------------------
+        elif "Equipe" in modo_runner:
+            st.markdown("Cole os dados da equipe para gerar o **Ranking de Performance**. O gráfico mostrará a distância de cada atleta em relação à média (Linha Zero).")
+            
+            with st.expander("📝 Configuração e Dados da Equipe", expanded=True):
+                c1, c2, c3 = st.columns([2, 1.5, 1.5])
+                with c1: nome_equipe_run = st.text_input("Nome da Equipe:", "Runners Club")
+                with c2: 
+                    modo_comp_run = st.radio("Comparar com:", ["🌍 Banco Global (Literatura)", "🏠 Média do Grupo (Intra-Time)"])
+                with c3:
+                    logo_raw_g = st.file_uploader("Logo da Equipe", type=["png", "jpg"], key="logo_run_g")
+                    logo_upload_g = validar_imagem(logo_raw_g) if logo_raw_g else None
+
+                st.write("---")
+                
+                df_template_grp = pd.DataFrame([
+                    {"Nome": "João", "Sexo": "Masculino", "Idade": 25, "Nível": "Amador", "Distância": "5km", "Minutos": 24, "Segundos": 30},
+                    {"Nome": "Maria", "Sexo": "Feminino", "Idade": 28, "Nível": "Amador", "Distância": "5km", "Minutos": 26, "Segundos": 15},
+                ])
+                
+                config_cols_grp = {
+                    "Nome": st.column_config.TextColumn("Atleta", required=True),
+                    "Sexo": st.column_config.SelectboxColumn("Sexo", options=["Masculino", "Feminino"], required=True),
+                    "Idade": st.column_config.NumberColumn("Idade", min_value=10, max_value=100),
+                    "Nível": st.column_config.SelectboxColumn("Nível", options=["Amador", "Elite"]),
+                    "Distância": st.column_config.SelectboxColumn("Distância", options=["100m", "400m", "1500m", "5km", "10km"], required=True),
+                    "Minutos": st.column_config.NumberColumn("Minutos", min_value=0, step=1),
+                    "Segundos": st.column_config.NumberColumn("Segundos", min_value=0, max_value=59, step=1)
+                }
+                
+                df_input_grp = st.data_editor(df_template_grp, num_rows="dynamic", column_config=config_cols_grp, use_container_width=True, hide_index=True)
+            
+            if st.button("🚀 PROCESSAR RANKING DA EQUIPE", type="primary"):
+                df_calc = df_input_grp.dropna(subset=["Nome", "Distância"]).copy()
+                if df_calc.empty:
+                    st.error("⚠️ Preencha os dados dos atletas.")
+                else:
+                    with st.spinner("Analisando performance da equipe..."):
+                        resultados = []
+                        
+                        # --- MOTOR 1: COMPARAÇÃO INTRA-TIME ---
+                        if "Intra-Time" in modo_comp_run:
+                            distancias_unicas = df_calc["Distância"].unique()
+                            for dist in distancias_unicas:
+                                df_dist = df_calc[df_calc["Distância"] == dist].copy()
+                                # Converte tudo para segundos para ter a base matemática
+                                df_dist["Tempo_Seg"] = df_dist["Minutos"].fillna(0)*60 + df_dist["Segundos"].fillna(0)
+                                
+                                media_grp = df_dist["Tempo_Seg"].mean()
+                                std_grp = df_dist["Tempo_Seg"].std(ddof=1)
+                                
+                                for idx, row in df_dist.iterrows():
+                                    t = row["Tempo_Seg"]
+                                    # Calcula Z-Score (invertido, pois menor tempo é melhor)
+                                    if std_grp and std_grp > 0 and len(df_dist) > 1:
+                                        z = (media_grp - t) / std_grp 
+                                    else:
+                                        z = 0
+                                    
+                                    resultados.append({
+                                        "Nome do Atleta": row["Nome"],
+                                        "Distância": dist,
+                                        "Tempo_Txt": f"{int(row.get('Minutos',0))}m {int(row.get('Segundos',0))}s",
+                                        "Valor do Teste": t, 
+                                        "Z_Score": z,
+                                        "Label": row["Nome"]
+                                    })
+                        
+                        # --- MOTOR 2: COMPARAÇÃO GLOBAL (API) ---
+                        else:
+                            for idx, row in df_calc.iterrows():
+                                t = row.get("Minutos",0)*60 + row.get("Segundos",0)
+                                if t <= 0: continue
+                                
+                                req = {
+                                    "ID": row["Nome"], "distancia": row["Distância"],
+                                    "sexo": "M" if row["Sexo"]=="Masculino" else "F",
+                                    "idade": int(row["Idade"]), "nivel": row["Nível"],
+                                    "tempo_segundos": float(t)
+                                }
+                                res_api = calcular_corrida_api(req)
+                                if "erro" not in res_api:
+                                    # Inverte visualmente o Z-Score que veio da API
+                                    z_visual = res_api["z_score"] * -1
+                                    resultados.append({
+                                        "Nome do Atleta": row["Nome"],
+                                        "Distância": row["Distância"],
+                                        "Tempo_Txt": f"{int(row.get('Minutos',0))}m {int(row.get('Segundos',0))}s",
+                                        "Valor do Teste": t,
+                                        "Z_Score": z_visual,
+                                        "Label": row["Nome"]
+                                    })
+                                    
+                        if not resultados:
+                            st.error("Nenhum dado válido para calcular.")
+                        else:
+                            df_res = pd.DataFrame(resultados)
+                            st.success("Cálculo concluído com sucesso!")
+                            
+                            logo_path = None
+                            if logo_upload_g:
+                                import tempfile
+                                ext = os.path.splitext(logo_upload_g.name)[1]
+                                with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
+                                    tmp.write(logo_upload_g.getvalue())
+                                    logo_path = tmp.name
+                                    
+                            interp = BioMSInterpreter()
+                            
+                            # Loop Inteligente: Gera 1 Ranking para CADA distância diferente encontrada na tabela!
+                            for dist in df_res["Distância"].unique():
+                                df_dist_res = df_res[df_res["Distância"] == dist].copy()
+                                st.write("---")
+                                st.subheader(f"🏆 Ranking de Performance: {dist}")
+                                
+                                # Gráfico Z-Score Global / Individual
+                                fig = interp.plot_ranking_batch(df_dist_res, "Z_Score", f"Comparativo ({modo_comp_run.split(' ')[1]})")
+                                st.pyplot(fig, use_container_width=True)
+                                
+                                # Tabela de Dados Exatos
+                                with st.expander("📋 Ver Tabela de Tempos Exatos"):
+                                    st.dataframe(df_dist_res[["Nome do Atleta", "Tempo_Txt", "Z_Score"]].style.format({"Z_Score": "{:.2f}"}), hide_index=True)
+                                
+                                # PDF usando o Z-Score Universal!
+                                if PDF_AVAILABLE:
+                                    try:
+                                        pdf_bytes = criar_relatorio_zscore_universal(df_dist_res, f"Corrida {dist} - {nome_equipe_run}", fig, logo_path)
+                                        st.download_button(
+                                            label=f"📥 BAIXAR RELATÓRIO {dist} (PDF)", 
+                                            data=pdf_bytes, 
+                                            file_name=f"Ranking_{dist}_{nome_equipe_run.replace(' ', '_')}.pdf", 
+                                            mime="application/pdf"
+                                        )
+                                    except Exception as e:
+                                        st.error(f"Erro ao gerar PDF: {e}")
+
+        # ---------------------------------------------------------
+        # CAMINHO C: EQUIPE LONGITUDINAL (ISCA PREMIUM)
+        # ---------------------------------------------------------
+        elif "Premium" in modo_runner:
+            st.info("🚀 **Recurso Premium:** Acompanhe a evolução de centenas de corredores ao longo de toda a temporada simultaneamente. Entre em contato para ativar este módulo no seu plano SaaS.")
 if __name__ == "__main__":
     main()

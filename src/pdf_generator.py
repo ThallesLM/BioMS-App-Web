@@ -43,7 +43,7 @@ class PDFReport(FPDF):
             self.ln(2)
             self.set_font('Arial', '', 8)
             self.set_text_color(80, 80, 80)
-            intro = "Análise BioMS: O novo padrão de mercado para análise de performance e saúdeatlética."
+            intro = "BioMS: O novo padrão para análise de performance e saúde atlética."
             self.multi_cell(130, 4, clean_text(intro), 0, 'L')
 
             # B. Logos (Direita - Lado a Lado)
@@ -121,7 +121,7 @@ def _desenhar_pagina_individual(pdf, atleta, res_finais, relatorio_dict, fig_rad
     pdf.ln(15)
 
     pdf.set_font('Arial', 'B', 12)
-    pdf.cell(0, 8, clean_text("Diagnóstico Técnico"), 0, 1, 'L')
+    pdf.cell(0, 8, clean_text("Relatório Técnico"), 0, 1, 'L')
     pdf.ln(2)
     for k in metrics:
         if k in relatorio_dict:
@@ -379,12 +379,12 @@ def criar_relatorio_zscore_universal(df_calc, nome_teste, fig_chart, logo_path=N
     return pdf.output(dest='S').encode('latin-1', 'ignore')
 
 # --- FUNÇÃO NOVA: CRIAÇÃO DO PDF NORMATIVO LONGITUDINAL ---
-def criar_relatorio_normativo_longitudinal(nome_aluno, idade, dados_exercicios, logo_path=None):
-    """Gera um PDF contendo a evolução longitudinal de 1RM do aluno"""
+def criar_relatorio_normativo_longitudinal(nome_aluno, idade, dados_exercicios, logo_path=None, titulo_relatorio="Relatório de Progresso e Força Máxima (1RM)"):
+    """Gera um PDF contendo a evolução longitudinal de 1RM ou Performance do aluno"""
     pdf = PDFReport()
     pdf.is_group = True # Usamos o layout de grupo porque ele tem aquele cabeçalho bonito
-    pdf.nome_equipe = clean_text(f"Evolução Normativa: {nome_aluno} ({idade} anos)")
-    pdf.info_referencia = "Comparativo: Literatura Científica"
+    pdf.nome_equipe = clean_text(f"Relatório BioMS")
+    pdf.info_referencia = "Nos baseamos em periódicos de medicina esportiva e fisiologia do exercício"
     pdf.logo_custom_path = logo_path
     
     pdf.set_margins(15, 15, 15)
@@ -395,7 +395,7 @@ def criar_relatorio_normativo_longitudinal(nome_aluno, idade, dados_exercicios, 
     # Título Principal Interno
     pdf.set_font('Arial', 'B', 14)
     pdf.set_text_color(44, 62, 80)
-    pdf.cell(0, 8, clean_text("Relatório de Progresso e Força Máxima (1RM)"), 0, 1, 'C')
+    pdf.cell(0, 8, clean_text(titulo_relatorio), 0, 1, 'C')
     
     # Adicionando o Nome do Aluno em destaque!
     pdf.set_font('Arial', '', 12)
